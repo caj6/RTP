@@ -4,5 +4,4 @@ soundfile==0.12.1
 scipy==1.11.4
 matplotlib==3.8.0
 pandas==2.1.4
-pydub==0.25.1
-pesq==0.0.4
+Spesq==0.0.4

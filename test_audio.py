@@ -2,7 +2,7 @@ import numpy as np
 import soundfile as sf
 import io
 
-# Create a test audio signal
+# Creating a test audio signal
 sample_rate = 16000
 duration = 2.0  # seconds
 t = np.linspace(0, duration, int(sample_rate * duration), False)
@@ -27,5 +27,4 @@ print(f"Loaded samples: {len(loaded_audio)}")
 
 # Save test file
 sf.write("test_audio.wav", test_audio, sample_rate)
-print("\n✅ Test file saved as 'test_audio.wav'")
-print("Use this file to test the simulator!")
+print("\n✅ Test file was saved as 'test_audio.wav'")
