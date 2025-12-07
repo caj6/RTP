@@ -3,11 +3,7 @@ Main Streamlit application for RTP Voice Network Simulator.
 """
 
 import streamlit as st
-import io
-import base64
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 
 # Import modules
 try:
@@ -621,6 +617,395 @@ def provide_educational_insights(stats, metrics):
     """
     )
 
+    # Add this function near the top of app.py (after imports, before main())
+
+
+def add_footer():
+
+    st.markdown("---")
+
+    # Footer columns
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("### 🎓 Educational Tool")
+        st.markdown(
+            """
+        - RTP Packetization
+        - Network Impairments
+        - Dejitter Buffering
+        - Audio Quality Analysis
+        """
+        )
+
+    with col2:
+        st.markdown("### 📚 Resources")
+        st.markdown(
+            """
+        - [RFC 3550: RTP Protocol](https://tools.ietf.org/html/rfc3550)
+        - [VoIP Network Guide](https://www.voip-info.org/)
+        - [PESQ Documentation](https://github.com/ludlows/python-pesq)
+        """
+        )
+
+    with col3:
+        st.markdown("### 📞 Contact")
+        st.markdown(
+            """
+        - **Course:** Introduction to Communication Networks    
+        - **Students:** Cyusa Adnan Junior
+        - **Semester:** First Semester 2025
+        """
+        )
+
+    # Copyright and links
+    st.markdown("---")
+
+    footer_cols = st.columns([2, 1, 1])
+
+    with footer_cols[0]:
+        st.caption(
+            "©CAJ | RTP Voice Network Simulator"
+        )
+
+    with footer_cols[1]:
+        if st.button("📖 Documentation"):
+            show_documentation()
+
+    with footer_cols[2]:
+        if st.button("🔄 Reset App"):
+            st.rerun()
+
+def show_documentation():
+    """Show documentation in an expander."""
+    with st.expander("📖 Documentation & References", expanded=True):
+        st.markdown(
+            """
+        ### 📋 How to Use This Simulator
+        
+        1. **Upload Audio**: Select a WAV audio file (short clips work best)
+        2. **Configure Parameters**: Adjust network conditions in sidebar
+        3. **Run Simulation**: Click the 'Run Simulation' button
+        4. **Analyze Results**: Review audio comparison, metrics, and visualizations
+        
+        ### 🎯 Learning Objectives
+        
+        This simulator demonstrates:
+        
+        **RTP Protocol**
+        - Packetization of voice streams
+        - Sequence numbering and timestamps
+        - Payload type identification
+        
+        **Network Impairments**
+        - Propagation delay effects
+        - Jitter (variable delay) impact
+        - Packet loss models (Random & Gilbert-Elliott)
+        - Packet reordering
+        
+        **Receiver Processing**
+        - Dejitter buffer operation
+        - Playout delay trade-offs
+        - Loss concealment techniques
+        
+        **Quality Assessment**
+        - Objective metrics (MSE, SNR, PESQ)
+        - Perceptual vs. signal-level evaluation
+        - Packet delivery statistics
+        
+        ### 🔧 Technical Details
+        
+        **Simulation Parameters:**
+        - **Frame Size**: Duration of audio in each RTP packet (10-60ms)
+        - **Base Delay**: Constant network propagation delay
+        - **Jitter**: Random delay variation (normal distribution)
+        - **Loss Models**: Random (independent) or Gilbert-Elliott (bursty)
+        - **Playout Delay**: Receiver buffer delay before playback
+        - **Max Buffer**: Late packet threshold
+        
+        **Quality Metrics:**
+        - **MSE**: Mean Squared Error (lower = better)
+        - **SNR**: Signal-to-Noise Ratio in dB (higher = better)
+        - **PESQ**: Perceptual Evaluation of Speech Quality (1.0-4.5)
+        
+        ### 📖 References
+        
+        1. **RFC 3550**: RTP: A Transport Protocol for Real-Time Applications
+        2. **RFC 3551**: RTP Profile for Audio and Video Conferences
+        3. **ITU-T P.862**: Perceptual evaluation of speech quality (PESQ)
+        4. Perkins, C. (2003). RTP: Audio and Video for the Internet
+        
+        ### 🐛 Troubleshooting
+        
+        **Common Issues:**
+        - **No audio output**: Check if audio file is in WAV format
+        - **Import errors**: Ensure all required packages are installed
+        - **Memory issues**: Use shorter audio files (<30 seconds)
+        - **Visualization errors**: Check matplotlib installation
+        
+        **Installation:**
+        ```bash
+        pip install streamlit numpy soundfile scipy matplotlib pandas librosa
+        ```
+        
+        ### 🚀 Future Enhancements
+        
+        Planned features:
+        - Multiple codec support (G.711, Opus)
+        - Adaptive jitter buffers
+        - Real-time network monitoring
+        - MOS (Mean Opinion Score) estimation
+        - Comparative analysis of different scenarios
+        """
+        )
+
+def show_documentation():
+    """Show documentation in an expander."""
+    with st.expander("📖 Documentation & References", expanded=True):
+        st.markdown(
+            """
+        ### 📋 How to Use This Simulator
+        
+        1. **Upload Audio**: Select a WAV audio file (short clips work best)
+        2. **Configure Parameters**: Adjust network conditions in sidebar
+        3. **Run Simulation**: Click the 'Run Simulation' button
+        4. **Analyze Results**: Review audio comparison, metrics, and visualizations
+        
+        ### 🎯 Learning Objectives
+        
+        This simulator demonstrates:
+        
+        **RTP Protocol**
+        - Packetization of voice streams
+        - Sequence numbering and timestamps
+        - Payload type identification
+        
+        **Network Impairments**
+        - Propagation delay effects
+        - Jitter (variable delay) impact
+        - Packet loss models (Random & Gilbert-Elliott)
+        - Packet reordering
+        
+        **Receiver Processing**
+        - Dejitter buffer operation
+        - Playout delay trade-offs
+        - Loss concealment techniques
+        
+        **Quality Assessment**
+        - Objective metrics (MSE, SNR, PESQ)
+        - Perceptual vs. signal-level evaluation
+        - Packet delivery statistics
+        
+        ### 🔧 Technical Details
+        
+        **Simulation Parameters:**
+        - **Frame Size**: Duration of audio in each RTP packet (10-60ms)
+        - **Base Delay**: Constant network propagation delay
+        - **Jitter**: Random delay variation (normal distribution)
+        - **Loss Models**: Random (independent) or Gilbert-Elliott (bursty)
+        - **Playout Delay**: Receiver buffer delay before playback
+        - **Max Buffer**: Late packet threshold
+        
+        **Quality Metrics:**
+        - **MSE**: Mean Squared Error (lower = better)
+        - **SNR**: Signal-to-Noise Ratio in dB (higher = better)
+        - **PESQ**: Perceptual Evaluation of Speech Quality (1.0-4.5)
+        
+        ### 📖 References
+        
+        1. **RFC 3550**: RTP: A Transport Protocol for Real-Time Applications
+        2. **RFC 3551**: RTP Profile for Audio and Video Conferences
+        3. **ITU-T P.862**: Perceptual evaluation of speech quality (PESQ)
+        4. Perkins, C. (2003). RTP: Audio and Video for the Internet
+        
+        ### 🐛 Troubleshooting
+        
+        **Common Issues:**
+        - **No audio output**: Check if audio file is in WAV format
+        - **Import errors**: Ensure all required packages are installed
+        - **Memory issues**: Use shorter audio files (<30 seconds)
+        - **Visualization errors**: Check matplotlib installation
+        
+        **Installation:**
+        ```bash
+        pip install streamlit numpy soundfile scipy matplotlib pandas librosa
+        ```
+        
+        ### 🚀 Future Enhancements
+        
+        Planned features:
+        - Multiple codec support (G.711, Opus)
+        - Adaptive jitter buffers
+        - Real-time network monitoring
+        - MOS (Mean Opinion Score) estimation
+        - Comparative analysis of different scenarios
+        """
+        )
+
+def show_documentation():
+    """Documentation in an expander."""
+    with st.expander("📖 Documentation & References", expanded=True):
+        st.markdown(
+            """
+        ### 📋 How to Use This Simulator
+        
+        1. **Upload Audio**: Select a WAV audio file (short clips work best)
+        2. **Configure Parameters**: Adjust network conditions in sidebar
+        3. **Run Simulation**: Click the 'Run Simulation' button
+        4. **Analyze Results**: Review audio comparison, metrics, and visualizations
+        
+        ### 🎯 Learning Objectives
+        
+        This simulator demonstrates:
+        
+        **RTP Protocol**
+        - Packetization of voice streams
+        - Sequence numbering and timestamps
+        - Payload type identification
+        
+        **Network Impairments**
+        - Propagation delay effects
+        - Jitter (variable delay) impact
+        - Packet loss models (Random & Gilbert-Elliott)
+        - Packet reordering
+        
+        **Receiver Processing**
+        - Dejitter buffer operation
+        - Playout delay trade-offs
+        - Loss concealment techniques
+        
+        **Quality Assessment**
+        - Objective metrics (MSE, SNR, PESQ)
+        - Perceptual vs. signal-level evaluation
+        - Packet delivery statistics
+        
+        ### 🔧 Technical Details
+        
+        **Simulation Parameters:**
+        - **Frame Size**: Duration of audio in each RTP packet (10-60ms)
+        - **Base Delay**: Constant network propagation delay
+        - **Jitter**: Random delay variation (normal distribution)
+        - **Loss Models**: Random (independent) or Gilbert-Elliott (bursty)
+        - **Playout Delay**: Receiver buffer delay before playback
+        - **Max Buffer**: Late packet threshold
+        
+        **Quality Metrics:**
+        - **MSE**: Mean Squared Error (lower = better)
+        - **SNR**: Signal-to-Noise Ratio in dB (higher = better)
+        - **PESQ**: Perceptual Evaluation of Speech Quality (1.0-4.5)
+        
+        ### 📖 References
+        
+        1. **RFC 3550**: RTP: A Transport Protocol for Real-Time Applications
+        2. **RFC 3551**: RTP Profile for Audio and Video Conferences
+        3. **ITU-T P.862**: Perceptual evaluation of speech quality (PESQ)
+        4. Perkins, C. (2003). RTP: Audio and Video for the Internet
+        
+        ### 🐛 Troubleshooting
+        
+        **Common Issues:**
+        - **No audio output**: Check if audio file is in WAV format
+        - **Import errors**: Ensure all required packages are installed
+        - **Memory issues**: Use shorter audio files (<30 seconds)
+        - **Visualization errors**: Check matplotlib installation
+        
+        **Installation:**
+        ```bash
+        pip install streamlit numpy soundfile scipy matplotlib pandas librosa
+        ```
+        
+        ### 🚀 Future Enhancements
+        
+        Planned features:
+        - Multiple codec support (G.711, Opus)
+        - Adaptive jitter buffers
+        - Real-time network monitoring
+        - MOS (Mean Opinion Score) estimation
+        - Comparative analysis of different scenarios
+        """
+        )
+
+def show_documentation():
+    """Show documentation in an expander."""
+    with st.expander("📖 Documentation & References", expanded=True):
+        st.markdown("""
+        ### 📋 How to Use This Simulator
+        
+        1. **Upload Audio**: Select a WAV audio file (short clips work best)
+        2. **Configure Parameters**: Adjust network conditions in sidebar
+        3. **Run Simulation**: Click the 'Run Simulation' button
+        4. **Analyze Results**: Review audio comparison, metrics, and visualizations
+        
+        ### 🎯 Learning Objectives
+        
+        This simulator demonstrates:
+        
+        **RTP Protocol**
+        - Packetization of voice streams
+        - Sequence numbering and timestamps
+        - Payload type identification
+        
+        **Network Impairments**
+        - Propagation delay effects
+        - Jitter (variable delay) impact
+        - Packet loss models (Random & Gilbert-Elliott)
+        - Packet reordering
+        
+        **Receiver Processing**
+        - Dejitter buffer operation
+        - Playout delay trade-offs
+        - Loss concealment techniques
+        
+        **Quality Assessment**
+        - Objective metrics (MSE, SNR, PESQ)
+        - Perceptual vs. signal-level evaluation
+        - Packet delivery statistics
+        
+        ### 🔧 Technical Details
+        
+        **Simulation Parameters:**
+        - **Frame Size**: Duration of audio in each RTP packet (10-60ms)
+        - **Base Delay**: Constant network propagation delay
+        - **Jitter**: Random delay variation (normal distribution)
+        - **Loss Models**: Random (independent) or Gilbert-Elliott (bursty)
+        - **Playout Delay**: Receiver buffer delay before playback
+        - **Max Buffer**: Late packet threshold
+        
+        **Quality Metrics:**
+        - **MSE**: Mean Squared Error (lower = better)
+        - **SNR**: Signal-to-Noise Ratio in dB (higher = better)
+        - **PESQ**: Perceptual Evaluation of Speech Quality (1.0-4.5)
+        
+        ### 📖 References
+        
+        1. **RFC 3550**: RTP: A Transport Protocol for Real-Time Applications
+        2. **RFC 3551**: RTP Profile for Audio and Video Conferences
+        3. **ITU-T P.862**: Perceptual evaluation of speech quality (PESQ)
+        4. Perkins, C. (2003). RTP: Audio and Video for the Internet
+        
+        ### 🐛 Troubleshooting
+        
+        **Common Issues:**
+        - **No audio output**: Check if audio file is in WAV format
+        - **Import errors**: Ensure all required packages are installed
+        - **Memory issues**: Use shorter audio files (<30 seconds)
+        - **Visualization errors**: Check matplotlib installation
+        
+        **Installation:**
+        ```bash
+        pip install streamlit numpy soundfile scipy matplotlib pandas librosa
+        ```
+        
+        ### 🚀 Future Enhancements
+        
+        Planned features:
+        - Multiple codec support (G.711, Opus)
+        - Adaptive jitter buffers
+        - Real-time network monitoring
+        - MOS (Mean Opinion Score) estimation
+        - Comparative analysis of different scenarios
+        """)
 
 if __name__ == "__main__":
     main()
+    add_footer()
