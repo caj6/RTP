@@ -1810,7 +1810,7 @@ def disp_res(
         # Export configuration
         config_report = generate_config_report(
             sample_rate,
-            frame_size,
+            frame_size_ms,
             base_delay_ms,
             jitter_ms, 
             loss_model,
