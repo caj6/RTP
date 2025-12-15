@@ -4,9 +4,10 @@ import io
 
 # Creating a test audio signal
 sample_rate = 16000
-duration = 2.0  # seconds
-t = np.linspace(0, duration, int(sample_rate * duration), False)
-test_audio = 0.5 * np.sin(2 * np.pi * 440 * t)  # 440 Hz sine wave
+duration = 9.0  # seconds
+t = np.linspace(0, duration, int(sample_rate * duration))
+f = 1000
+test_audio = 0.5 * np.sin(2 * np.pi * f * t)  # 1000 Hz sine wave
 
 # Save to bytes
 buffer = io.BytesIO()

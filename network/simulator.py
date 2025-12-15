@@ -21,6 +21,7 @@ class NetworkSimulator:
         jitter_ms: float = 30,
         loss_model_config: dict = None,
         reorder_prob: float = 0.0,
+        delay_distribution: str = "Constant + Normal",
     ) -> List[RTPPacket]:
         """
         Apply network impairments to packets.
@@ -28,9 +29,10 @@ class NetworkSimulator:
         Args:
             packets: List of RTP packets to transmit
             base_delay_ms: Constant propagation delay
-            jitter_ms: Random delay variation (std dev)
+            jitter_ms: Random delay variation parameter
             loss_model_config: Configuration for loss model
             reorder_prob: Probability of packet reordering
+            delay_distribution: Distribution model for delay ("Constant + Normal", "Exponential", "Pareto")
 
         Returns:
             List of packets that arrived (in arrival order)
@@ -53,8 +55,8 @@ class NetworkSimulator:
             if self.loss_model.should_drop(packet.sequence):
                 continue  # Packet lost
 
-            # Calculate delay with jitter
-            jitter = max(0, np.random.normal(0, jitter_ms / 1000.0))
+            # Calculate delay based on selected distribution
+            jitter = self._calculate_jitter(jitter_ms, delay_distribution)
             total_delay = base_delay_ms / 1000.0 + jitter
             packet.arrival_time = packet.send_time + total_delay
 
@@ -71,6 +73,42 @@ class NetworkSimulator:
         delivered_packets.sort(key=lambda p: p.arrival_time)
 
         return delivered_packets
+
+    def _calculate_jitter(self, jitter_ms: float, distribution: str) -> float:
+        """
+        Calculate jitter based on selected distribution.
+
+        Args:
+            jitter_ms: Jitter parameter (mean/std dev depending on distribution)
+            distribution: Distribution type
+
+        Returns:
+            Jitter value in seconds
+        """
+        if jitter_ms <= 0:
+            return 0.0
+
+        if distribution == "Constant + Normal":
+            # Normal distribution: N(0, jitter_ms)
+            jitter = max(0, np.random.normal(0, jitter_ms / 1000.0))
+
+        elif distribution == "Exponential":
+            # Exponential distribution with mean = jitter_ms
+            jitter = np.random.exponential(jitter_ms / 1000.0)
+
+        elif distribution == "Pareto":
+            # Pareto distribution (heavy-tailed)
+            # Shape parameter = 2.5 (creates heavy tail)
+            # Scale = jitter_ms * (shape - 1) / shape to get mean = jitter_ms
+            shape = 2.5
+            scale = jitter_ms * (shape - 1) / shape
+            jitter = (np.random.pareto(shape) + 1) * (scale / 1000.0)
+
+        else:
+            # Default to normal distribution
+            jitter = max(0, np.random.normal(0, jitter_ms / 1000.0))
+
+        return jitter
 
     def _apply_reordering(
         self, packets: List[RTPPacket], probability: float

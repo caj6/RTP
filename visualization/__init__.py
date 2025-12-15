@@ -1,11 +1,8 @@
 """
-Visualization module.
-Exports plotting and metrics classes.
+Visualization package for RTP Voice Network Simulator.
 """
 
 from .plots import Visualization
 from .metrics import QualityMetrics
 
 __all__ = ["Visualization", "QualityMetrics"]
-
-__version__ = "1.0.0"

@@ -1,277 +1,294 @@
 """
-Visualization functions for the simulator.
+Quality metrics calculation.
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
-from typing import List
-from rtp.packet import RTPPacket
+import math
+from typing import Dict, Optional
 
-class Visualization:
-    """Handles all plotting for the simulator."""
-    
-    def __init__(self, style='ggplot'):
+# Disable PESQ due to import issues
+PESQ_AVAILABLE = False
+
+
+class QualityMetrics:
+    """Calculate audio quality metrics."""
+
+    def __init__(self):
+        """Initialize quality metrics calculator."""
+        pass
+
+    def calculate_all(
+        self, original: np.ndarray, received: np.ndarray, sample_rate: int
+    ) -> Dict:
         """
-        Initialize visualizer.
-        
-        Args:
-            style: Matplotlib style to use
-        """
-        plt.style.use(style)
-        self.colors = {
-            'original': '#2E86AB',
-            'received': '#A23B72',
-            'on_time': '#4CAF50',
-            'late': '#FF9800',
-            'lost': '#F44336',
-            'background': '#F5F5F5'
-        }
-    
-    def plot_waveforms_comparison(self, original: np.ndarray,
-                                  received: np.ndarray,
-                                  sample_rate: int) -> plt.Figure:
-        """
-        Plot original vs received waveforms.
-        
+        Calculate all quality metrics.
+
         Args:
             original: Original audio samples
             received: Received audio samples
             sample_rate: Sample rate in Hz
-            
+
         Returns:
-            Matplotlib figure
+            Dictionary of all metrics
         """
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
-        
-        # Create time axis
-        time_axis = np.arange(len(original)) / sample_rate
-        
-        # Plot original
-        ax1.plot(time_axis, original, 
-                color=self.colors['original'],
-                alpha=0.8,
-                linewidth=0.5)
-        ax1.fill_between(time_axis, 0, original,
-                        color=self.colors['original'],
-                        alpha=0.3)
-        ax1.set_title('Original Audio', fontsize=14, fontweight='bold')
-        ax1.set_ylabel('Amplitude', fontsize=12)
-        ax1.grid(True, alpha=0.3)
-        ax1.set_xlim([0, time_axis[-1]])
-        
-        # Plot received
-        ax2.plot(time_axis, received,
-                color=self.colors['received'],
-                alpha=0.8,
-                linewidth=0.5)
-        ax2.fill_between(time_axis, 0, received,
-                        color=self.colors['received'],
-                        alpha=0.3)
-        ax2.set_title('Received Audio', fontsize=14, fontweight='bold')
-        ax2.set_xlabel('Time (seconds)', fontsize=12)
-        ax2.set_ylabel('Amplitude', fontsize=12)
-        ax2.grid(True, alpha=0.3)
-        ax2.set_xlim([0, time_axis[-1]])
-        
-        plt.tight_layout()
-        return fig
-    
-    def plot_packet_timeline(self, packets: List[RTPPacket],
-                            frame_size_ms: int,
-                            playout_delay_ms: int,
-                            max_buffer_ms: int) -> plt.Figure:
+        # Ensure same length
+        min_len = min(len(original), len(received))
+        orig_trim = original[:min_len].copy()
+        recv_trim = received[:min_len].copy()
+
+        # Calculate basic metrics
+        mse = self.calculate_mse(orig_trim, recv_trim)
+        snr_db = self.calculate_snr(orig_trim, recv_trim)
+
+        # Calculate PESQ using fallback method
+        pesq_score = self.calculate_pesq_fallback(orig_trim, recv_trim, sample_rate)
+
+        # Additional metrics
+        correlation = self.calculate_correlation(orig_trim, recv_trim)
+        spectral_distortion = self.calculate_spectral_distortion(
+            orig_trim, recv_trim, sample_rate
+        )
+
+        return {
+            "mse": mse,
+            "snr_db": snr_db,
+            "pesq": pesq_score,
+            "correlation": correlation,
+            "spectral_distortion": spectral_distortion,
+            "samples_compared": min_len,
+            "duration_seconds": min_len / sample_rate,
+            "sample_rate": sample_rate,
+        }
+
+    def calculate_mse(self, original: np.ndarray, received: np.ndarray) -> float:
+        """Calculate Mean Squared Error."""
+        if len(original) == 0 or len(received) == 0:
+            return float("inf")
+
+        return float(np.mean((original - received) ** 2))
+
+    def calculate_snr(self, original: np.ndarray, received: np.ndarray) -> float:
+        """Calculate Signal-to-Noise Ratio in dB."""
+        if len(original) == 0:
+            return float("-inf")
+
+        signal_power = np.mean(original**2)
+        noise = original - received
+        noise_power = np.mean(noise**2)
+
+        if noise_power == 0:
+            return float("inf")
+
+        snr = 10 * math.log10(signal_power / noise_power)
+        return snr
+
+    def calculate_pesq_fallback(
+        self, original: np.ndarray, received: np.ndarray, sample_rate: int
+    ) -> Optional[float]:
         """
-        Plot packet transmission timeline.
-        
-        Args:
-            packets: List of packets
-            frame_size_ms: Frame duration
-            playout_delay_ms: Playout delay
-            max_buffer_ms: Maximum buffer time
-            
-        Returns:
-            Matplotlib figure
+        Fallback PESQ estimation when the PESQ library is not available.
+        This provides reasonable approximations for educational purposes.
         """
-        if not packets:
-            return self._create_empty_plot("No packets to display")
-        
-        fig, ax = plt.subplots(figsize=(12, 6))
-        
-        # Extract data
-        seq_nums = [pkt.sequence for pkt in packets]
-        send_times = [pkt.send_time * 1000 for pkt in packets]  # ms
-        arrival_times = [pkt.arrival_time * 1000 for pkt in packets]  # ms
-        
-        # Calculate deadlines
-        first_arrival = min(arrival_times)
-        playout_start = first_arrival + playout_delay_ms
-        deadline = playout_start + max_buffer_ms
-        
-        # Plot packet journeys
-        for send, arrive, seq in zip(send_times, arrival_times, seq_nums):
-            # Color based on arrival time
-            if arrive <= playout_start + max_buffer_ms:
-                color = self.colors['on_time']
-                marker = 'o'
-                size = 40
+        # Check for valid sample rate
+        if sample_rate not in [8000, 16000]:
+            return None
+
+        # Check minimum duration
+        min_len = min(len(original), len(received))
+        duration = min_len / sample_rate
+        if duration < 1.0:
+            return None
+
+        # Normalize audio
+        orig_norm = self._normalize_for_pesq(original)
+        recv_norm = self._normalize_for_pesq(received)
+
+        try:
+            # Calculate correlation
+            correlation = np.corrcoef(orig_norm, recv_norm)[0, 1]
+            if np.isnan(correlation):
+                correlation = 0.0
+
+            # Calculate SNR
+            signal_power = np.mean(orig_norm**2)
+            noise_power = np.mean((orig_norm - recv_norm) ** 2)
+
+            if noise_power > 0:
+                snr_db = 10 * math.log10(signal_power / noise_power)
             else:
-                color = self.colors['late']
-                marker = 's'
-                size = 50
-            
-            # Plot send and arrival points
-            ax.scatter(send, seq, color='gray', alpha=0.5, s=20, marker='^')
-            ax.scatter(arrive, seq, color=color, alpha=0.7, s=size, marker=marker)
-            
-            # Draw connecting line
-            ax.plot([send, arrive], [seq, seq], 'gray', alpha=0.3, linewidth=1)
-        
-        # Draw reference lines
-        ax.axvline(x=playout_start, color='green', linestyle='--',
-                  linewidth=2, label='Playout Start')
-        ax.axvline(x=deadline, color='red', linestyle='--',
-                  linewidth=2, label='Late Deadline')
-        
-        # Draw expected playout times
-        for seq in seq_nums:
-            expected_time = playout_start + (seq * frame_size_ms)
-            ax.axvline(x=expected_time, color='blue',
-                      alpha=0.1, linestyle=':', linewidth=0.5)
-        
-        ax.set_xlabel('Time (ms)', fontsize=12)
-        ax.set_ylabel('Packet Sequence Number', fontsize=12)
-        ax.set_title('Packet Transmission Timeline', fontsize=14, fontweight='bold')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        return fig
-    
-    def plot_delay_histogram(self, packets: List[RTPPacket]) -> plt.Figure:
+                snr_db = 50  # Perfect reconstruction
+
+            # Estimate PESQ based on correlation and SNR
+            # These formulas are approximations for educational purposes
+            if correlation > 0.95:
+                pesq_est = 4.0 + min(0.5, (correlation - 0.95) * 10)
+            elif correlation > 0.85:
+                pesq_est = 3.5 + (correlation - 0.85) * 5
+            elif correlation > 0.70:
+                pesq_est = 3.0 + (correlation - 0.70) * 3.33
+            elif correlation > 0.50:
+                pesq_est = 2.5 + (correlation - 0.50) * 2.5
+            elif correlation > 0.30:
+                pesq_est = 2.0 + (correlation - 0.30) * 2.5
+            else:
+                pesq_est = 1.0 + correlation * 3.33
+
+            # Adjust based on SNR
+            if snr_db > 40:
+                pesq_est = min(4.5, pesq_est + 0.2)
+            elif snr_db > 30:
+                pesq_est = min(4.3, pesq_est + 0.1)
+            elif snr_db < 10:
+                pesq_est = max(1.0, pesq_est - 0.3)
+            elif snr_db < 20:
+                pesq_est = max(1.5, pesq_est - 0.2)
+
+            # Clip to valid PESQ range
+            pesq_est = max(1.0, min(4.5, pesq_est))
+
+            return float(pesq_est)
+
+        except Exception as e:
+            print(f"Fallback PESQ calculation error: {e}")
+            return None
+
+    def _normalize_for_pesq(self, audio: np.ndarray) -> np.ndarray:
+        """Normalize audio for PESQ calculation."""
+        if len(audio) == 0:
+            return audio
+
+        rms = np.sqrt(np.mean(audio**2))
+        if rms > 0:
+            target_rms = 0.05  # Approximate -26 dBov for speech
+            audio = audio * (target_rms / rms)
+
+        # Ensure within valid range
+        audio = np.clip(audio, -1.0, 1.0)
+        return audio
+
+    def calculate_pesq(
+        self, original: np.ndarray, received: np.ndarray, sample_rate: int
+    ) -> Optional[float]:
+        """Legacy method - use calculate_pesq_fallback instead."""
+        return self.calculate_pesq_fallback(original, received, sample_rate)
+
+    def calculate_correlation(
+        self, original: np.ndarray, received: np.ndarray
+    ) -> float:
+        """Calculate correlation coefficient."""
+        if len(original) < 2:
+            return 0.0
+
+        correlation = np.corrcoef(original, received)[0, 1]
+        if np.isnan(correlation):
+            return 0.0
+        return float(correlation)
+
+    def calculate_spectral_distortion(
+        self,
+        original: np.ndarray,
+        received: np.ndarray,
+        sample_rate: int,
+        n_fft: int = 512,
+    ) -> float:
+        """Calculate average spectral distortion."""
+        if len(original) < n_fft:
+            return 0.0
+
+        try:
+            # Calculate spectrograms
+            from scipy.signal import stft
+
+            f_orig, t_orig, Zxx_orig = stft(
+                original, fs=sample_rate, nperseg=n_fft, noverlap=n_fft // 2
+            )
+            f_recv, t_recv, Zxx_recv = stft(
+                received, fs=sample_rate, nperseg=n_fft, noverlap=n_fft // 2
+            )
+
+            # Calculate magnitude spectrograms
+            mag_orig = np.abs(Zxx_orig)
+            mag_recv = np.abs(Zxx_recv)
+
+            # Avoid division by zero
+            mag_orig = np.maximum(mag_orig, 1e-10)
+            mag_recv = np.maximum(mag_recv, 1e-10)
+
+            # Calculate spectral distortion
+            log_ratio = 20 * np.log10(mag_orig / mag_recv)
+            distortion = np.sqrt(np.mean(log_ratio**2))
+
+            return float(distortion)
+        except Exception:
+            return 0.0
+
+    def interpret_metrics(self, metrics: Dict) -> Dict:
         """
-        Plot histogram of packet delays.
-        
+        Provide interpretation of metrics.
+
         Args:
-            packets: List of packets
-            
+            metrics: Dictionary of calculated metrics
+
         Returns:
-            Matplotlib figure
+            Dictionary with interpretations
         """
-        if not packets:
-            return self._create_empty_plot("No packets to display")
-        
-        # Calculate delays in ms
-        delays = []
-        for pkt in packets:
-            if pkt.send_time is not None and pkt.arrival_time is not None:
-                delay = (pkt.arrival_time - pkt.send_time) * 1000
-                delays.append(delay)
-        
-        if not delays:
-            return self._create_empty_plot("No delay data available")
-        
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-        
-        # Histogram
-        ax1.hist(delays, bins=30, color=self.colors['original'],
-                alpha=0.7, edgecolor='black')
-        ax1.set_xlabel('Delay (ms)', fontsize=12)
-        ax1.set_ylabel('Number of Packets', fontsize=12)
-        ax1.set_title('Packet Delay Distribution', fontsize=14, fontweight='bold')
-        ax1.grid(True, alpha=0.3)
-        
-        # Add statistics
-        mean_delay = np.mean(delays)
-        std_delay = np.std(delays)
-        median_delay = np.median(delays)
-        
-        ax1.axvline(mean_delay, color='red', linestyle='--',
-                   label=f'Mean: {mean_delay:.1f}ms')
-        ax1.axvline(median_delay, color='green', linestyle=':',
-                   label=f'Median: {median_delay:.1f}ms')
-        ax1.legend()
-        
-        # Cumulative distribution
-        sorted_delays = np.sort(delays)
-        cdf = np.arange(1, len(sorted_delays) + 1) / len(sorted_delays)
-        
-        ax2.plot(sorted_delays, cdf, color=self.colors['received'],
-                linewidth=2)
-        ax2.set_xlabel('Delay (ms)', fontsize=12)
-        ax2.set_ylabel('Cumulative Probability', fontsize=12)
-        ax2.set_title('Delay Cumulative Distribution', fontsize=14, fontweight='bold')
-        ax2.grid(True, alpha=0.3)
-        
-        # Add percentile lines
-        for percentile in [50, 75, 90, 95, 99]:
-            delay_value = np.percentile(delays, percentile)
-            ax2.axvline(delay_value, color='gray', linestyle='--', alpha=0.5)
-            ax2.text(delay_value, 0.05, f'{percentile}%',
-                    rotation=90, va='bottom', ha='right')
-        
-        plt.tight_layout()
-        return fig
-    
-    def plot_packet_statistics(self, stats: dict) -> plt.Figure:
-        """
-        Plot packet statistics pie chart and bar chart.
-        
-        Args:
-            stats: Packet statistics dictionary
-            
-        Returns:
-            Matplotlib figure
-        """
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-        
-        # Pie chart
-        labels = ['On Time', 'Late', 'Lost']
-        sizes = [
-            stats.get('on_time_rate', 0) * 100,
-            stats.get('late_rate', 0) * 100,
-            stats.get('loss_rate', 0) * 100
-        ]
-        
-        colors = [self.colors['on_time'], self.colors['late'], self.colors['lost']]
-        
-        ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',
-               startangle=90, explode=(0.1, 0, 0))
-        ax1.set_title('Packet Delivery Status', fontsize=14, fontweight='bold')
-        
-        # Bar chart with counts
-        categories = ['Total Expected', 'On Time', 'Late', 'Lost']
-        counts = [
-            stats.get('total_expected', 0),
-            stats.get('received_on_time', 0),
-            stats.get('received_late', 0),
-            stats.get('lost', 0)
-        ]
-        
-        bar_colors = ['gray', self.colors['on_time'],
-                     self.colors['late'], self.colors['lost']]
-        
-        bars = ax2.bar(categories, counts, color=bar_colors, alpha=0.8)
-        ax2.set_title('Packet Counts', fontsize=14, fontweight='bold')
-        ax2.set_ylabel('Number of Packets', fontsize=12)
-        ax2.grid(True, alpha=0.3, axis='y')
-        
-        # Add value labels on bars
-        for bar, count in zip(bars, counts):
-            height = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{int(count)}', ha='center', va='bottom')
-        
-        plt.tight_layout()
-        return fig
-    
-    def _create_empty_plot(self, message: str) -> plt.Figure:
-        """Create an empty plot with a message."""
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.text(0.5, 0.5, message,
-                ha='center', va='center',
-                fontsize=14, color='gray',
-                transform=ax.transAxes)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_frame_on(False)
-        return fig
+        interpretations = {}
+
+        # MSE interpretation
+        mse = metrics.get("mse", float("inf"))
+        if mse < 1e-6:
+            interpretations["mse"] = "Excellent (near perfect)"
+        elif mse < 1e-4:
+            interpretations["mse"] = "Very Good"
+        elif mse < 1e-2:
+            interpretations["mse"] = "Good"
+        elif mse < 0.1:
+            interpretations["mse"] = "Fair"
+        else:
+            interpretations["mse"] = "Poor"
+
+        # SNR interpretation
+        snr = metrics.get("snr_db", float("-inf"))
+        if snr > 40:
+            interpretations["snr"] = "Excellent"
+        elif snr > 30:
+            interpretations["snr"] = "Very Good"
+        elif snr > 20:
+            interpretations["snr"] = "Good"
+        elif snr > 10:
+            interpretations["snr"] = "Fair"
+        else:
+            interpretations["snr"] = "Poor"
+
+        # PESQ interpretation
+        pesq_score = metrics.get("pesq")
+        sample_rate = metrics.get("sample_rate", 0)
+
+        if pesq_score is not None:
+            if pesq_score > 4.0:
+                interpretations["pesq"] = "Excellent (transparent)"
+            elif pesq_score > 3.5:
+                interpretations["pesq"] = "Good"
+            elif pesq_score > 3.0:
+                interpretations["pesq"] = "Fair"
+            elif pesq_score > 2.5:
+                interpretations["pesq"] = "Poor"
+            elif pesq_score > 2.0:
+                interpretations["pesq"] = "Bad"
+            else:
+                interpretations["pesq"] = "Very Bad"
+        else:
+            interpretations["pesq"] = "Not available (using fallback)"
+
+        # Correlation interpretation
+        corr = metrics.get("correlation", 0)
+        if corr > 0.9:
+            interpretations["correlation"] = "Excellent"
+        elif corr > 0.7:
+            interpretations["correlation"] = "Good"
+        elif corr > 0.5:
+            interpretations["correlation"] = "Moderate"
+        else:
+            interpretations["correlation"] = "Poor"
+
+        return interpretations

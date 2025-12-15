@@ -48,20 +48,28 @@ class RandomLossModel(LossModel):
 class GilbertElliottModel(LossModel):
     """
     Gilbert-Elliott two-state Markov model.
-    Good state (G): No loss
+    Good state (G): Low loss probability
     Bad state (B): High loss probability
     """
 
-    def __init__(self, p_gb: float, p_bg: float, loss_in_bad: float = 0.7):
+    def __init__(
+        self,
+        p_gb: float,
+        p_bg: float,
+        loss_in_good: float = 0.01,
+        loss_in_bad: float = 0.7,
+    ):
         """
         Args:
             p_gb: Probability of transition from Good to Bad
             p_bg: Probability of transition from Bad to Good
-            loss_in_bad: Loss probability in Bad state
+            loss_in_good: Loss probability in Good state (typically very low)
+            loss_in_bad: Loss probability in Bad state (typically high)
         """
         self.p_gb = p_gb
         self.p_bg = p_bg
-        self.loss_in_bad = loss_in_bad
+        self.loss_good = loss_in_good
+        self.loss_bad = loss_in_bad
         self.state = "G"  # Start in Good state
 
     def should_drop(self, packet_seq: int) -> bool:
@@ -73,11 +81,11 @@ class GilbertElliottModel(LossModel):
             if np.random.rand() < self.p_bg:
                 self.state = "G"
 
-        # Loss decision
+        # Loss decision based on current state
         if self.state == "G":
-            return False
+            return np.random.rand() < self.loss_good
         else:
-            return np.random.rand() < self.loss_in_bad
+            return np.random.rand() < self.loss_bad
 
 
 class BurstLossModel(LossModel):
@@ -150,6 +158,7 @@ class LossModelFactory:
             return GilbertElliottModel(
                 p_gb=config.get("p_gb", 0.02),
                 p_bg=config.get("p_bg", 0.3),
+                loss_in_good=config.get("loss_good", 0.01),
                 loss_in_bad=config.get("loss_bad", 0.6),
             )
 
